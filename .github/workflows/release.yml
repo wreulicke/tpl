@@ -12,6 +12,8 @@ jobs:
       matrix:
         go:
           - 1.22.3
+    permissions:
+      contents: write
     name: GoReleaser
     steps:
       - uses: actions/checkout@master
