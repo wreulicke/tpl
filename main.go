@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"debug/buildinfo"
 	"fmt"
 	"io"
 	"io/fs"
@@ -49,21 +50,51 @@ func NewApp() *cobra.Command {
 	c.Flags().StringVarP(&path, "filepath", "f", "", "template file")
 
 	c.AddCommand(
-		&cobra.Command{
-			Use:   "funcs",
-			Short: "show help for template functions",
-			Run: func(cmd *cobra.Command, args []string) {
-				w := cmd.OutOrStdout()
-				fmt.Fprintln(w, "We are using github.com/Masterminds/sprig")
-				fmt.Fprintln(w, "you can see document here, https://masterminds.github.io/sprig/")
-				fmt.Fprintln(w)
-				fmt.Fprintln(w, "We introduce some functions for template")
-
-				// TODO
-			},
-		},
+		NewFuncCommand(),
+		NewVersionCommand(),
 	)
 	return &c
+}
+
+func NewFuncCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "funcs",
+		Short: "show help for template functions",
+		Run: func(cmd *cobra.Command, args []string) {
+			w := cmd.OutOrStdout()
+			fmt.Fprintln(w, "We are using github.com/Masterminds/sprig")
+			fmt.Fprintln(w, "you can see document here, https://masterminds.github.io/sprig/")
+			fmt.Fprintln(w)
+			fmt.Fprintln(w, "We introduce some functions for template")
+
+			// TODO
+		},
+	}
+}
+
+func NewVersionCommand() *cobra.Command {
+	var detail bool
+	c := &cobra.Command{
+		Use:   "version",
+		Short: "show version",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			w := cmd.OutOrStdout()
+			info, err := buildinfo.ReadFile(os.Args[0])
+			if err != nil {
+				return fmt.Errorf("Cannot read buildinfo: %w", err)
+			}
+
+			fmt.Fprintf(w, "go version: %s", info.GoVersion)
+			fmt.Fprintf(w, "module version: %s", info.Main.Version)
+			if detail {
+				fmt.Fprintln(w)
+				fmt.Fprintln(w, info)
+			}
+			return nil
+		},
+	}
+	c.Flags().BoolVarP(&detail, "detail", "d", false, "show details")
+	return c
 }
 
 type Template struct {
@@ -101,7 +132,7 @@ func file() string {
 	})
 }
 
-func Funcs() template.FuncMap {
+func funcs() template.FuncMap {
 	m := sprig.TxtFuncMap()
 	m["i"] = input
 	m["input"] = input
@@ -120,7 +151,7 @@ func newTemplate(path string) (*Template, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot read file path:%s: %w", path, err)
 	}
-	t, err := template.New("template").Funcs(Funcs()).Parse(string(bs))
+	t, err := template.New("template").Funcs(funcs()).Parse(string(bs))
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse template path:%s: %w", path, err)
 	}
