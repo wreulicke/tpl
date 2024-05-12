@@ -129,7 +129,11 @@ func file() string {
 			return nil
 		})
 		return r
-	})
+	}, prompt.OptionPrefixTextColor(prompt.Green))
+}
+
+func choose(name string, opts ...string) string {
+	return prompt.Choose(name+": ", opts, prompt.OptionPrefixTextColor(prompt.Green))
 }
 
 func funcs() template.FuncMap {
@@ -138,6 +142,8 @@ func funcs() template.FuncMap {
 	m["input"] = input
 	m["f"] = file
 	m["file"] = file
+	m["choose"] = choose
+	m["select"] = choose
 	return m
 }
 
