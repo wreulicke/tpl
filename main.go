@@ -100,7 +100,9 @@ func file() string {
 func Funcs() template.FuncMap {
 	m := sprig.TxtFuncMap()
 	m["i"] = input
+	m["input"] = input
 	m["f"] = file
+	m["file"] = file
 	return m
 }
 
