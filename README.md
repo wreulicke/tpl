@@ -6,8 +6,8 @@ Tiny interactive template generator using go text/template.
 
 ```bash
 $ cat template.tpl
-Hello {{ i "name"}} !!
-You can select {{ f }}.
+Hello {{ input "name"}} !!
+You can select {{ file }}.
 
 $ tpl -f template.tpl
 > name: John Doe
