@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
-	"github.com/manifoldco/promptui"
+	"github.com/influxdata/go-prompt"
 	"github.com/spf13/cobra"
 )
 
@@ -27,15 +32,35 @@ func NewApp() *cobra.Command {
 		Use:   "tpl",
 		Short: "template command",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			t, err := NewTemplate(path)
+			t, err := newTemplate(path)
 			if err != nil {
 				return err
 			}
-			return t.Execute(os.Stdout)
+			var b bytes.Buffer
+			err = t.Execute(&b)
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(os.Stdout, &b)
+			return err
 		},
 	}
 	c.Flags().StringVarP(&path, "filepath", "f", "", "template file")
 
+	c.AddCommand(
+		&cobra.Command{
+			Use:   "funcs",
+			Short: "show help for template functions",
+			Run: func(cmd *cobra.Command, args []string) {
+				fmt.Println("We are using github.com/Masterminds/sprig")
+				fmt.Println("you can see document here, https://masterminds.github.io/sprig/")
+				fmt.Println()
+				fmt.Println("We introduce some functions for template")
+
+				// TODO
+			},
+		},
+	)
 	return &c
 }
 
@@ -44,35 +69,47 @@ type Template struct {
 }
 
 func input(name string) string {
-	templates := &promptui.PromptTemplates{
-		Prompt:  "{{ . }}: ",
-		Valid:   "{{ . | green }}: ",
-		Invalid: "{{ . | red }}: ",
-		Success: "{{ . | bold }}: ",
-	}
+	return prompt.Input(name+": ", func(d prompt.Document) []prompt.Suggest {
+		return []prompt.Suggest{}
+	}, prompt.OptionPrefixTextColor(prompt.Green))
+}
 
-	prompt := promptui.Prompt{
-		Label:     name,
-		Templates: templates,
-	}
-	s, err := prompt.Run()
-	if err != nil {
-		panic(err)
-	}
-	return s
+func file() string {
+	return prompt.Input("file: ", func(d prompt.Document) []prompt.Suggest {
+		dir := filepath.Dir(d.Text)
+		q := d.Text
+		r := []prompt.Suggest{}
+		_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if strings.HasPrefix(path, q) {
+				r = append(r, prompt.Suggest{
+					Text: path,
+				})
+			}
+			if len(r) >= 10 {
+				return filepath.SkipAll
+			}
+			return nil
+		})
+		return r
+	})
 }
 
 func Funcs() template.FuncMap {
 	m := sprig.TxtFuncMap()
 	m["i"] = input
+	m["f"] = file
 	return m
 }
 
-func NewTemplate(path string) (*Template, error) {
+func newTemplate(path string) (*Template, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 	bs, err := io.ReadAll(f)
 	if err != nil && err != io.EOF {
 		return nil, err
