@@ -17,6 +17,7 @@ import (
 )
 
 func mainInternal() error {
+	//nolint:wrapcheck
 	return NewApp().Execute()
 }
 
@@ -52,10 +53,11 @@ func NewApp() *cobra.Command {
 			Use:   "funcs",
 			Short: "show help for template functions",
 			Run: func(cmd *cobra.Command, args []string) {
-				fmt.Println("We are using github.com/Masterminds/sprig")
-				fmt.Println("you can see document here, https://masterminds.github.io/sprig/")
-				fmt.Println()
-				fmt.Println("We introduce some functions for template")
+				w := cmd.OutOrStdout()
+				fmt.Fprintln(w, "We are using github.com/Masterminds/sprig")
+				fmt.Fprintln(w, "you can see document here, https://masterminds.github.io/sprig/")
+				fmt.Fprintln(w)
+				fmt.Fprintln(w, "We introduce some functions for template")
 
 				// TODO
 			},
@@ -74,6 +76,8 @@ func input(name string) string {
 	}, prompt.OptionPrefixTextColor(prompt.Green))
 }
 
+const maxSuggest = 10
+
 func file() string {
 	return prompt.Input("file: ", func(d prompt.Document) []prompt.Suggest {
 		dir := filepath.Dir(d.Text)
@@ -88,7 +92,7 @@ func file() string {
 					Text: path,
 				})
 			}
-			if len(r) >= 10 {
+			if len(r) >= maxSuggest {
 				return filepath.SkipAll
 			}
 			return nil
@@ -109,20 +113,24 @@ func Funcs() template.FuncMap {
 func newTemplate(path string) (*Template, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot open file path:%s: %w", path, err)
 	}
 	defer f.Close()
 	bs, err := io.ReadAll(f)
-	if err != nil && err != io.EOF {
-		return nil, err
+	if err != nil {
+		return nil, fmt.Errorf("cannot read file path:%s: %w", path, err)
 	}
 	t, err := template.New("template").Funcs(Funcs()).Parse(string(bs))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot parse template path:%s: %w", path, err)
 	}
 	return &Template{template: t}, nil
 }
 
 func (t *Template) Execute(w io.Writer) error {
-	return t.template.Execute(w, nil)
+	err := t.template.Execute(w, nil)
+	if err != nil {
+		return fmt.Errorf("unable to generate content: %w", err)
+	}
+	return nil
 }
