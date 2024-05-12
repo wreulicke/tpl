@@ -1,6 +1,6 @@
 # tpl
 
-Tiny template generator using go text/template.
+Tiny interactive template generator using go text/template.
 
 ## Usage
 
@@ -19,5 +19,6 @@ You can select testdata/example.tpl.
 
 ## TODO
 
+* Add functions to select values
 * Add functions to edit filepath
 * Add help for functions
